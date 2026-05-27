@@ -5,16 +5,21 @@ from pathlib import Path
 AST_SPEC: dict[str, list[tuple[str, str]]] = {
     "Assign": [("name", "Token"), ("value", "Expr")],
     "Binary": [("left", "Expr"), ("operator", "Token"), ("right", "Expr")],
-    "Unary": [("operator", "Token"), ("right", "Expr")],
+    "Call": [("callee", "Expr"), ("paren", "Token"), ("arguments", "list[Expr]")],
     "Grouping": [("expression", "Expr")],
     "Literal": [("value", "object")],
+    "Logical": [("left", "Expr"), ("operator", "Token"), ("right", "Expr")],
+    "Unary": [("operator", "Token"), ("right", "Expr")],
     "Variable": [("name", "Token")],
 }
 
 STMT_SPEC: dict[str, list[tuple[str, str]]] = {
     "Expression": [("expr", "Expr")],
+    "Function": [("name", "Token"), ("params", "list[Token]"), ("body", "list[Stmt]")],
+    "If": [("condition", "Expr"), ("then_branch", "Stmt"), ("else_branch", "Stmt | None")],
     "Print": [("expr", "Expr")],
     "Var": [("name", "Token"), ("initializer", "Expr | None")],
+    "While": [("condition", "Expr"), ("body", "Stmt")],
     "Block": [("statements", "list[Stmt]")],
 }
 

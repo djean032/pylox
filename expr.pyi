@@ -16,10 +16,11 @@ class Binary(Expr):
     right: Expr
     def __init__(self, left: Expr, operator: Token, right: Expr) -> None: ...
 
-class Unary(Expr):
-    operator: Token
-    right: Expr
-    def __init__(self, operator: Token, right: Expr) -> None: ...
+class Call(Expr):
+    callee: Expr
+    paren: Token
+    arguments: list[Expr]
+    def __init__(self, callee: Expr, paren: Token, arguments: list[Expr]) -> None: ...
 
 class Grouping(Expr):
     expression: Expr
@@ -28,6 +29,17 @@ class Grouping(Expr):
 class Literal(Expr):
     value: object
     def __init__(self, value: object) -> None: ...
+
+class Logical(Expr):
+    left: Expr
+    operator: Token
+    right: Expr
+    def __init__(self, left: Expr, operator: Token, right: Expr) -> None: ...
+
+class Unary(Expr):
+    operator: Token
+    right: Expr
+    def __init__(self, operator: Token, right: Expr) -> None: ...
 
 class Variable(Expr):
     name: Token

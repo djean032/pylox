@@ -1,20 +1,35 @@
 from functools import singledispatch
-from expr import Expr, Assign, Binary, Unary, Grouping, Literal, Variable
-from stmt import Stmt, Expression, Print, Var, Block
+from expr import Expr, Assign, Binary, Unary, Grouping, Literal, Variable, Logical, Call
+from stmt import Stmt, Expression, Print, Var, Block, If, While
 from environment import Environment
 from loxerror import LoxRuntimeError
-from typing import TypeAlias, Tuple, List
+from loxcallable import LoxCallable
+from time import time
+from typing import TypeAlias, Tuple, List, Any
 
 from tokens import Token, TokenType
 
+LoxValue: TypeAlias = float | str | bool | LoxCallable | None
 
-LoxValue: TypeAlias = float | str | bool | None
+class Clock:
+    def arity(self) -> int:
+        return 0
 
+    def call(self, interpreter: "Interpreter", arguments: list[Any]) -> float:
+        _ = interpreter
+        _ = arguments
+        return time()
+
+    def __str__(self) -> str:
+        return "<native fn>"
 
 class Interpreter:
 
     def __init__(self):
+        self.globals: Environment = Environment()
         self.environment: Environment = Environment()
+
+        self.globals.define("clock", Clock())
 
     def interpret(self, expr: Expr) -> None:
         value = self.evaluate(expr)
@@ -52,6 +67,18 @@ class Interpreter:
         self.execute_block(stmt.statements, Environment(self.environment))
         return None
 
+    def visit_if(self, stmt: If) -> None:
+        if self.is_truthy(self.evaluate(stmt.condition)):
+            self.execute(stmt.then_branch)
+        elif stmt.else_branch is not None:
+            self.execute(stmt.else_branch)
+        return None
+
+    def visit_while(self, stmt: While) -> None:
+        while self.is_truthy(self.evaluate(stmt.condition)):
+            self.execute(stmt.body)
+        return None
+
     def execute_block(self, statements: list[Stmt], environment: Environment) -> None:
         previous: Environment = self.environment
         try:
@@ -67,6 +94,27 @@ class Interpreter:
         value: LoxValue = self.evaluate(expr.value)
         self.environment.assign(expr.name, value)
         return value
+
+    def visit_logical(self, expr: Logical) -> LoxValue:
+        left: LoxValue = self.evaluate(expr.left)
+
+        if expr.operator.token_type == TokenType.OR:
+            if self.is_truthy(left):
+                return left
+            else:
+                if not self.is_truthy(left):
+                    return left
+        return self.evaluate(expr.right)
+
+    def visit_call(self, expr: Call) -> LoxValue:
+        callee: LoxValue = self.evaluate(expr.callee)
+        arguments: list[LoxValue] = [self.evaluate(argument) for argument in expr.arguments]
+        if not isinstance(callee, LoxCallable):
+            raise LoxRuntimeError(expr.paren, "Can only call functions and classes.")
+        if len(arguments) != callee.arity():
+            raise LoxRuntimeError(expr.paren, f"Expected {callee.arity()} arguments but got {len(arguments)}.")
+
+        return callee.call(self, arguments)
 
     def visit_binary(self, expr: Binary) -> LoxValue:
         right: LoxValue = self.evaluate(expr.right)
@@ -197,6 +245,16 @@ def _(expr: Variable, interp: "Interpreter") -> LoxValue:
     return interp.visit_variable(expr)
 
 
+@eval.register
+def _(expr: Logical, interp: "Interpreter") -> LoxValue:
+    return interp.visit_logical(expr)
+
+
+@eval.register
+def _(expr: Call, interp: "Interpreter") -> LoxValue:
+    return interp.visit_call(expr)
+
+
 @singledispatch
 def exec(stmt: Stmt, interp: "Interpreter") -> None:
     raise TypeError(f"No execute handler for {type(stmt).__name__}")
@@ -220,3 +278,13 @@ def _(stmt: Var, interp: "Interpreter") -> None:
 @exec.register
 def _(stmt: Block, interp: "Interpreter") -> None:
     interp.visit_block(stmt)
+
+
+@exec.register
+def _(stmt: If, interp: "Interpreter") -> None:
+    interp.visit_if(stmt)
+
+
+@exec.register
+def _(stmt: While, interp: "Interpreter") -> None:
+    interp.visit_while(stmt)

@@ -13,9 +13,11 @@ class Expr:
 _SPEC: dict[str, list[tuple[str, Any]]] = {
     "Assign": [("name", Token), ("value", Expr)],
     "Binary": [("left", Expr), ("operator", Token), ("right", Expr)],
-    "Unary": [("operator", Token), ("right", Expr)],
+    "Call": [("callee", Expr), ("paren", Token), ("arguments", list[Expr])],
     "Grouping": [("expression", Expr)],
     "Literal": [("value", object)],
+    "Logical": [("left", Expr), ("operator", Token), ("right", Expr)],
+    "Unary": [("operator", Token), ("right", Expr)],
     "Variable": [("name", Token)],
 }
 
@@ -36,9 +38,11 @@ def _build_expr_classes() -> dict[str, type[Expr]]:
 _classes = _build_expr_classes()
 Assign = _classes["Assign"]
 Binary = _classes["Binary"]
-Unary = _classes["Unary"]
+Call = _classes["Call"]
 Grouping = _classes["Grouping"]
 Literal = _classes["Literal"]
+Logical = _classes["Logical"]
+Unary = _classes["Unary"]
 Variable = _classes["Variable"]
 
-__all__ = ["Expr", "Assign", "Binary", "Unary", "Grouping", "Literal", "Variable"]
+__all__ = ["Expr", "Assign", "Binary", "Call", "Grouping", "Literal", "Logical", "Unary", "Variable"]
