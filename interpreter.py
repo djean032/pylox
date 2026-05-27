@@ -1,7 +1,8 @@
 from functools import singledispatch
-from expr import Expr, Binary, Unary, Grouping, Literal
-from stmt import Stmt, Expression, Print, Var
-from loxerror import LoxRuntimeError, LoxErrors
+from expr import Expr, Assign, Binary, Unary, Grouping, Literal, Variable
+from stmt import Stmt, Expression, Print, Var, Block
+from environment import Environment
+from loxerror import LoxRuntimeError
 from typing import TypeAlias, Tuple, List
 
 from tokens import Token, TokenType
@@ -12,14 +13,12 @@ LoxValue: TypeAlias = float | str | bool | None
 
 class Interpreter:
 
+    def __init__(self):
+        self.environment: Environment = Environment()
+
     def interpret(self, expr: Expr) -> None:
-        try:
-            value = self.evaluate(expr)
-            print(self.stringify(value))
-        except LoxRuntimeError as err:
-            LoxErrors.report(
-                err.operator.line, f" at '{err.operator.lexeme}'", err.message
-            )
+        value = self.evaluate(expr)
+        print(self.stringify(value))
 
     def stringify(self, value: LoxValue) -> str:
         if value is None:
@@ -41,6 +40,33 @@ class Interpreter:
     def visit_print(self, stmt: Print) -> None:
         value = self.evaluate(stmt.expr)
         print(self.stringify(value))
+
+    def visit_var(self, stmt: Var) -> None:
+        value: LoxValue | None = None
+        if stmt.initializer is not None:
+            value = self.evaluate(stmt.initializer)
+
+        self.environment.define(stmt.name.lexeme, value)
+
+    def visit_block(self, stmt: Block) -> None:
+        self.execute_block(stmt.statements, Environment(self.environment))
+        return None
+
+    def execute_block(self, statements: list[Stmt], environment: Environment) -> None:
+        previous: Environment = self.environment
+        try:
+            self.environment = environment
+
+            for statement in statements:
+                self.execute(statement)
+
+        finally:
+            self.environment = previous
+
+    def visit_assign(self, expr: Assign) -> LoxValue:
+        value: LoxValue = self.evaluate(expr.value)
+        self.environment.assign(expr.name, value)
+        return value
 
     def visit_binary(self, expr: Binary) -> LoxValue:
         right: LoxValue = self.evaluate(expr.right)
@@ -114,6 +140,9 @@ class Interpreter:
 
         raise TypeError(f"Unsupported literal type value {type(value).__name__}")
 
+    def visit_variable(self, expr: Variable) -> LoxValue:
+        return self.environment.get(expr.name)
+
     def check_num(self, operator: Token, *operands: LoxValue) -> Tuple[float, ...]:
         numbers: List[float] = []
         for operand in operands:
@@ -162,18 +191,32 @@ def _(expr: Grouping, interp: "Interpreter") -> LoxValue:
 def _(expr: Literal, interp: "Interpreter") -> LoxValue:
     return interp.visit_literal(expr)
 
+
+@eval.register
+def _(expr: Variable, interp: "Interpreter") -> LoxValue:
+    return interp.visit_variable(expr)
+
+
 @singledispatch
 def exec(stmt: Stmt, interp: "Interpreter") -> None:
     raise TypeError(f"No execute handler for {type(stmt).__name__}")
+
 
 @exec.register
 def _(stmt: Expression, interp: "Interpreter") -> None:
     interp.visit_expression(stmt)
 
+
 @exec.register
 def _(stmt: Print, interp: "Interpreter") -> None:
     interp.visit_print(stmt)
 
+
 @exec.register
 def _(stmt: Var, interp: "Interpreter") -> None:
     interp.visit_var(stmt)
+
+
+@exec.register
+def _(stmt: Block, interp: "Interpreter") -> None:
+    interp.visit_block(stmt)

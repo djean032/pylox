@@ -3,6 +3,7 @@ from __future__ import annotations
 from pathlib import Path
 
 AST_SPEC: dict[str, list[tuple[str, str]]] = {
+    "Assign": [("name", "Token"), ("value", "Expr")],
     "Binary": [("left", "Expr"), ("operator", "Token"), ("right", "Expr")],
     "Unary": [("operator", "Token"), ("right", "Expr")],
     "Grouping": [("expression", "Expr")],
@@ -13,7 +14,8 @@ AST_SPEC: dict[str, list[tuple[str, str]]] = {
 STMT_SPEC: dict[str, list[tuple[str, str]]] = {
     "Expression": [("expr", "Expr")],
     "Print": [("expr", "Expr")],
-    "Var": [("name", "Token"), ("initializer", "Expr")],
+    "Var": [("name", "Token"), ("initializer", "Expr | None")],
+    "Block": [("statements", "list[Stmt]")],
 }
 
 
@@ -148,6 +150,11 @@ def gen_stmt_pyi(spec: dict[str, list[tuple[str, str]]]) -> str:
         else:
             for field_name, field_type in fields:
                 lines.append(f"    {field_name}: {field_type}")
+        params = ", ".join(f"{name}: {type_name}" for name, type_name in fields)
+        if params:
+            lines.append(f"    def __init__(self, {params}) -> None: ...")
+        else:
+            lines.append("    def __init__(self) -> None: ...")
         lines.append("")
     return "\n".join(lines)
 

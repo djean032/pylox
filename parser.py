@@ -1,5 +1,6 @@
 from tokens import Token, TokenType
-from expr import Expr, Binary, Unary, Literal, Grouping
+from expr import Expr, Binary, Unary, Literal, Grouping, Variable, Assign
+from stmt import Stmt, Print, Expression, Var, Block
 from typing import List
 from loxerror import LoxErrors, LoxParseError
 
@@ -9,11 +10,13 @@ class Parser:
         self.tokens = tokens
         self.current = 0
 
-    def parse(self) -> Expr | None:
-        try:
-            return self.expression()
-        except LoxParseError:
-            return None
+    def parse(self) -> List[Stmt]:
+        statements: List[Stmt] = []
+        while not self.is_at_end():
+            statement = self.declaration()
+            if statement is not None:
+                statements.append(statement)
+        return statements
 
     def error(self, token: Token, message: str) -> LoxParseError:
         if token.token_type == TokenType.EOF:
@@ -140,5 +143,61 @@ class Parser:
 
         return expr
 
+    def assignment(self) -> Expr:
+        expr: Expr = self.equality()
+        if self.match(TokenType.EQUAL):
+            equals: Token = self.previous()
+            value: Expr = self.assignment()
+            if isinstance(expr, Variable):
+                name: Token = expr.name
+                return Assign(name, value)
+            raise self.error(equals, "Invalid assignment target.")
+        return expr
+
     def expression(self) -> Expr:
-        return self.equality()
+        return self.assignment()
+
+    def statement(self) -> Stmt:
+        if self.match(TokenType.PRINT):
+            return self.print_statement()
+        if self.match(TokenType.LEFT_BRACE):
+            return Block(self.block())
+        return self.expression_statement()
+
+    def declaration(self) -> Stmt | None:
+        try:
+            if self.match(TokenType.VAR):
+                return self.var_declaration()
+            return self.statement()
+        except LoxParseError:
+            self.synchronize()
+            return None
+
+    def print_statement(self) -> Stmt:
+        value: Expr = self.expression()
+        self.consume(TokenType.SEMICOLON, 'Expect ";" after value.')
+        return Print(value)
+
+    def expression_statement(self) -> Stmt:
+        expr: Expr = self.expression()
+        self.consume(TokenType.SEMICOLON, 'Expect ";" after expression.')
+        return Expression(expr)
+
+    def var_declaration(self) -> Stmt:
+        name: Token = self.consume(TokenType.IDENTIFIER, "Expect variable name.")
+
+        initializer: Expr | None = None
+        if self.match(TokenType.EQUAL):
+            initializer = self.expression()
+        self.consume(TokenType.SEMICOLON, 'Expect ";" after variable declaration.')
+        return Var(name, initializer)
+
+    def block(self) -> list[Stmt]:
+        statements: list[Stmt] = []
+        while not self.check(TokenType.RIGHT_BRACE) and not self.is_at_end():
+            stmt: Stmt | None = self.declaration()
+            if stmt is not None:
+                statements.append(stmt)
+
+        self.consume(TokenType.RIGHT_BRACE, 'Expect "}" after block.')
+        return statements

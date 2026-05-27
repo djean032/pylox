@@ -5,6 +5,11 @@ from tokens import Token
 
 class Expr: ...
 
+class Assign(Expr):
+    name: Token
+    value: Expr
+    def __init__(self, name: Token, value: Expr) -> None: ...
+
 class Binary(Expr):
     left: Expr
     operator: Token

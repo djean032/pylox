@@ -14,7 +14,8 @@ class Stmt:
 _SPEC: dict[str, list[tuple[str, Any]]] = {
     "Expression": [("expr", Expr)],
     "Print": [("expr", Expr)],
-    "Var": [("name", Token), ("initializer", Expr)],
+    "Var": [("name", Token), ("initializer", Expr | None)],
+    "Block": [("statements", list[Stmt])],
 }
 
 
@@ -35,5 +36,6 @@ _classes = _build_stmt_classes()
 Expression = _classes["Expression"]
 Print = _classes["Print"]
 Var = _classes["Var"]
+Block = _classes["Block"]
 
-__all__ = ["Expr", "Expression", "Print", "Var"]
+__all__ = ["Expr", "Expression", "Print", "Var", "Block"]
