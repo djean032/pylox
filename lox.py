@@ -1,10 +1,10 @@
 from pathlib import Path
 from loxerror import LoxScanError, LoxErrors, LoxRuntimeError
 from scanner import Scanner
+from stmt import Stmt
 from parser import Parser
 from tokens import TokenType
 from interpreter import Interpreter
-from ast_printer import print_ast
 
 
 class Lox:
@@ -45,12 +45,12 @@ class Lox:
             return
 
         parser = Parser(scanner.tokens)
-        expr = parser.parse()
-        if expr is None:
+        statements: list[Stmt] = parser.parse()
+        if parser.had_error:
             self.had_error = True
             return
         try:
-            Interpreter().interpret(expr)
+            Interpreter().interpret(statements)
         except LoxRuntimeError as err:
             where = (
                 " at end"

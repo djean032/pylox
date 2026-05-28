@@ -10,10 +10,12 @@ def test_invalid_parser_input_returns_none(source: str, capsys) -> None:
     scanner = Scanner(source)
     scanner.scan_tokens()
 
-    expr = Parser(scanner.tokens).parse()
+    parser = Parser(scanner.tokens)
+    statements = parser.parse()
 
     out = capsys.readouterr()
-    assert expr is None
+    assert parser.had_error is True
+    assert statements == []
     assert "Error" in out.err
 
 

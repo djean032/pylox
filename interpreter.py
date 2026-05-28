@@ -1,21 +1,24 @@
 from functools import singledispatch
 from expr import Expr, Assign, Binary, Unary, Grouping, Literal, Variable, Logical, Call
-from stmt import Stmt, Expression, Print, Var, Block, If, While
+from stmt import Return, Stmt, Expression, Print, Var, Block, If, While, Function
 from environment import Environment
+from resolver import Resolver
 from loxerror import LoxRuntimeError
 from loxcallable import LoxCallable
+from loxfunction import LoxFunction
+from return_signal import ReturnSignal
+from values import LoxValue
 from time import time
-from typing import TypeAlias, Tuple, List, Any
+from typing import Tuple, List
 
 from tokens import Token, TokenType
 
-LoxValue: TypeAlias = float | str | bool | LoxCallable | None
 
 class Clock:
     def arity(self) -> int:
         return 0
 
-    def call(self, interpreter: "Interpreter", arguments: list[Any]) -> float:
+    def call(self, interpreter: "Interpreter", arguments: list[LoxValue]) -> float:
         _ = interpreter
         _ = arguments
         return time()
@@ -23,17 +26,20 @@ class Clock:
     def __str__(self) -> str:
         return "<native fn>"
 
+
 class Interpreter:
 
     def __init__(self):
         self.globals: Environment = Environment()
-        self.environment: Environment = Environment()
+        self.environment: Environment = self.globals
+        self.resolver: Resolver = Resolver(self)
+        self.locals: dict[Expr, int] = {}
 
         self.globals.define("clock", Clock())
 
-    def interpret(self, expr: Expr) -> None:
-        value = self.evaluate(expr)
-        print(self.stringify(value))
+    def interpret(self, statements: list[Stmt]) -> None:
+        for statement in statements:
+            self.execute(statement)
 
     def stringify(self, value: LoxValue) -> str:
         if value is None:
@@ -49,8 +55,21 @@ class Interpreter:
     def execute(self, stmt: Stmt) -> None:
         exec(stmt, self)
 
+    def resolve(self, expr: Expr, depth: int) -> None:
+        self.locals[expr] = depth
+
     def visit_expression(self, stmt: Expression) -> None:
         self.evaluate(stmt.expr)
+
+    def visit_function(self, stmt: Function) -> None:
+        function: LoxFunction = LoxFunction(stmt, self.environment)
+        self.environment.define(stmt.name.lexeme, function)
+
+    def visit_return(self, stmt: Return) -> None:
+        value: LoxValue = None
+        if stmt.value is not None:
+            value = self.evaluate(stmt.value)
+        raise ReturnSignal(value)
 
     def visit_print(self, stmt: Print) -> None:
         value = self.evaluate(stmt.expr)
@@ -108,11 +127,16 @@ class Interpreter:
 
     def visit_call(self, expr: Call) -> LoxValue:
         callee: LoxValue = self.evaluate(expr.callee)
-        arguments: list[LoxValue] = [self.evaluate(argument) for argument in expr.arguments]
+        arguments: list[LoxValue] = [
+            self.evaluate(argument) for argument in expr.arguments
+        ]
         if not isinstance(callee, LoxCallable):
             raise LoxRuntimeError(expr.paren, "Can only call functions and classes.")
         if len(arguments) != callee.arity():
-            raise LoxRuntimeError(expr.paren, f"Expected {callee.arity()} arguments but got {len(arguments)}.")
+            raise LoxRuntimeError(
+                expr.paren,
+                f"Expected {callee.arity()} arguments but got {len(arguments)}.",
+            )
 
         return callee.call(self, arguments)
 
@@ -189,7 +213,14 @@ class Interpreter:
         raise TypeError(f"Unsupported literal type value {type(value).__name__}")
 
     def visit_variable(self, expr: Variable) -> LoxValue:
-        return self.environment.get(expr.name)
+        return self.lookup_variable(expr.name, expr)
+
+    def lookup_variable(self, name: Token, expr: Expr) -> LoxValue:
+        distance: int | None = self.locals.get(expr)
+        if distance is not None:
+            return self.environment.get_at(distance, name.lexeme)
+        else:
+            return self.globals.get(name)
 
     def check_num(self, operator: Token, *operands: LoxValue) -> Tuple[float, ...]:
         numbers: List[float] = []
@@ -255,6 +286,11 @@ def _(expr: Call, interp: "Interpreter") -> LoxValue:
     return interp.visit_call(expr)
 
 
+@eval.register
+def _(expr: Assign, interp: "Interpreter") -> LoxValue:
+    return interp.visit_assign(expr)
+
+
 @singledispatch
 def exec(stmt: Stmt, interp: "Interpreter") -> None:
     raise TypeError(f"No execute handler for {type(stmt).__name__}")
@@ -288,3 +324,13 @@ def _(stmt: If, interp: "Interpreter") -> None:
 @exec.register
 def _(stmt: While, interp: "Interpreter") -> None:
     interp.visit_while(stmt)
+
+
+@exec.register
+def _(stmt: Function, interp: "Interpreter") -> None:
+    interp.visit_function(stmt)
+
+
+@exec.register
+def _(stmt: Return, interp: "Interpreter") -> None:
+    interp.visit_return(stmt)

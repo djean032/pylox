@@ -1,6 +1,6 @@
 from tokens import Token, TokenType
 from expr import Expr, Binary, Unary, Literal, Grouping, Variable, Assign, Logical, Call
-from stmt import Stmt, Print, Expression, Var, Block, If, While, Function
+from stmt import Stmt, Print, Expression, Var, Block, If, While, Function, Return
 from typing import List
 from loxerror import LoxErrors, LoxParseError
 
@@ -9,6 +9,7 @@ class Parser:
     def __init__(self, tokens: List[Token]):
         self.tokens = tokens
         self.current = 0
+        self.had_error = False
 
     def parse(self) -> List[Stmt]:
         statements: List[Stmt] = []
@@ -23,6 +24,7 @@ class Parser:
             LoxErrors.report(token.line, " at end", message)
         else:
             LoxErrors.report(token.line, f" at '{token.lexeme}'", message)
+        self.had_error = True
         return LoxParseError(token, message)
 
     def is_at_end(self) -> bool:
@@ -88,6 +90,8 @@ class Parser:
             expr = self.expression()
             self.consume(TokenType.RIGHT_PAREN, "Expect ')' after expression.")
             return Grouping(expr)
+        if self.match(TokenType.IDENTIFIER):
+            return Variable(self.previous())
         raise self.error(self.peek(), "Expect Expression.")
 
     def finish_call(self, callee: Expr) -> Expr:
@@ -204,6 +208,8 @@ class Parser:
     def statement(self) -> Stmt:
         if self.match(TokenType.PRINT):
             return self.print_statement()
+        if self.match(TokenType.RETURN):
+            return self.return_statement()
         if self.match(TokenType.WHILE):
             return self.while_statement()
         if self.match(TokenType.LEFT_BRACE):
@@ -227,8 +233,8 @@ class Parser:
 
     def function(self, kind: str) -> Function:
         name: Token = self.consume(TokenType.IDENTIFIER, f"Expect {kind} name.")
-        parameters: list[Token] = []
         self.consume(TokenType.LEFT_PAREN, f'Expect "(" after {kind} name.')
+        parameters: list[Token] = []
         if not self.check(TokenType.RIGHT_PAREN):
             while True:
                 if len(parameters) >= 255:
@@ -237,7 +243,7 @@ class Parser:
                 parameters.append(
                     self.consume(TokenType.IDENTIFIER, "Expect parameter name.")
                 )
-                if self.match(TokenType.COMMA):
+                if not self.match(TokenType.COMMA):
                     break
         self.consume(TokenType.RIGHT_PAREN, 'Expect ")" after parameters.')
         self.consume(TokenType.LEFT_BRACE, f'Expect "{{" before {kind} body.')
@@ -249,6 +255,14 @@ class Parser:
         self.consume(TokenType.SEMICOLON, 'Expect ";" after value.')
         return Print(value)
 
+    def return_statement(self) -> Stmt:
+        keyword: Token = self.previous()
+        value: Expr | None = None
+        if not self.check(TokenType.SEMICOLON):
+            value = self.expression()
+        self.consume(TokenType.SEMICOLON, 'Expect ";" after return value.')
+        return Return(keyword, value)
+
     def while_statement(self) -> Stmt:
         self.consume(TokenType.LEFT_PAREN, 'Expect "(" after "while".')
         condition: Expr = self.expression()
@@ -258,6 +272,7 @@ class Parser:
 
     def expression_statement(self) -> Stmt:
         expr: Expr = self.expression()
+        self.consume(TokenType.SEMICOLON, 'Expect ";" after expression.')
         return Expression(expr)
 
     def var_declaration(self) -> Stmt:
@@ -292,33 +307,26 @@ class Parser:
 
     def for_statement(self) -> Stmt:
         self.consume(TokenType.LEFT_PAREN, 'Expect "(" after "for".')
-        initializer: Stmt | None = None
         if self.match(TokenType.SEMICOLON):
-            pass
-        if self.match(TokenType.VAR):
+            initializer: Stmt | None = None
+        elif self.match(TokenType.VAR):
             initializer = self.var_declaration()
         else:
             initializer = self.expression_statement()
-
         condition: Expr | None = None
         if not self.check(TokenType.SEMICOLON):
             condition = self.expression()
         self.consume(TokenType.SEMICOLON, 'Expect ";" after loop condition.')
-
         increment: Expr | None = None
         if not self.check(TokenType.RIGHT_PAREN):
             increment = self.expression()
-        self.consume(TokenType.RIGHT_PAREN, 'Expect ")" after for clauses')
-        body: Stmt = self.statement()
-
+        self.consume(TokenType.RIGHT_PAREN, 'Expect ")" after for clauses.')
+        body = self.statement()
         if increment is not None:
             body = Block([body, Expression(increment)])
-
         if condition is None:
             condition = Literal(True)
         body = While(condition, body)
-
         if initializer is not None:
             body = Block([initializer, body])
-
         return body

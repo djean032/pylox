@@ -26,6 +26,11 @@ class Print(Stmt):
     expr: Expr
     def __init__(self, expr: Expr) -> None: ...
 
+class Return(Stmt):
+    keyword: Token
+    value: Expr | None
+    def __init__(self, keyword: Token, value: Expr | None) -> None: ...
+
 class Var(Stmt):
     name: Token
     initializer: Expr | None

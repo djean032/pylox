@@ -1,10 +1,10 @@
 from lox import Lox
 
 
-def test_run_success_prints_ast(capsys) -> None:
+def test_run_success_prints_value(capsys) -> None:
     lox = Lox()
 
-    lox.run("1 + 2 * 3")
+    lox.run("print 1 + 2 * 3;")
 
     out = capsys.readouterr()
     assert lox.had_error is False

@@ -16,8 +16,13 @@ AST_SPEC: dict[str, list[tuple[str, str]]] = {
 STMT_SPEC: dict[str, list[tuple[str, str]]] = {
     "Expression": [("expr", "Expr")],
     "Function": [("name", "Token"), ("params", "list[Token]"), ("body", "list[Stmt]")],
-    "If": [("condition", "Expr"), ("then_branch", "Stmt"), ("else_branch", "Stmt | None")],
+    "If": [
+        ("condition", "Expr"),
+        ("then_branch", "Stmt"),
+        ("else_branch", "Stmt | None"),
+    ],
     "Print": [("expr", "Expr")],
+    "Return": [("keyword", "Token"), ("value", "Expr | None")],
     "Var": [("name", "Token"), ("initializer", "Expr | None")],
     "While": [("condition", "Expr"), ("body", "Stmt")],
     "Block": [("statements", "list[Stmt]")],
@@ -107,7 +112,7 @@ def gen_stmt_py(spec: dict[str, list[tuple[str, str]]]) -> str:
     for class_name in spec:
         lines.append(f'{class_name} = _classes["{class_name}"]')
     lines.append("")
-    exports = ", ".join(f'"{name}"' for name in ["Expr", *spec.keys()])
+    exports = ", ".join(f'"{name}"' for name in ["Stmt", *spec.keys()])
     lines.append(f"__all__ = [{exports}]")
     lines.append("")
     return "\n".join(lines)

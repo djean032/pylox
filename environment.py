@@ -1,7 +1,7 @@
 from typing import Dict
 from loxerror import LoxRuntimeError
 from tokens import Token
-from interpreter import LoxValue
+from values import LoxValue
 
 
 class Environment:
@@ -27,3 +27,14 @@ class Environment:
             self.enclosing.assign(name, value)
             return None
         raise LoxRuntimeError(name, f'Undefined variable "{name.lexeme}".')
+
+    def get_at(self, distance: int, name: str) -> LoxValue:
+        return self.ancestor(distance).values[name]
+
+    def ancestor(self, distance: int) -> "Environment":
+        environment: Environment = self
+        for _ in range(distance):
+            if environment.enclosing is None:
+                raise RuntimeError("Missing enclosing environment.")
+            environment = environment.enclosing
+        return environment

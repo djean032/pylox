@@ -16,6 +16,7 @@ _SPEC: dict[str, list[tuple[str, Any]]] = {
     "Function": [("name", Token), ("params", list[Token]), ("body", list[Stmt])],
     "If": [("condition", Expr), ("then_branch", Stmt), ("else_branch", Stmt | None)],
     "Print": [("expr", Expr)],
+    "Return": [("keyword", Token), ("value", Expr | None)],
     "Var": [("name", Token), ("initializer", Expr | None)],
     "While": [("condition", Expr), ("body", Stmt)],
     "Block": [("statements", list[Stmt])],
@@ -40,8 +41,9 @@ Expression = _classes["Expression"]
 Function = _classes["Function"]
 If = _classes["If"]
 Print = _classes["Print"]
+Return = _classes["Return"]
 Var = _classes["Var"]
 While = _classes["While"]
 Block = _classes["Block"]
 
-__all__ = ["Expr", "Expression", "Function", "If", "Print", "Var", "While", "Block"]
+__all__ = ["Stmt", "Expression", "Function", "If", "Print", "Return", "Var", "While", "Block"]
