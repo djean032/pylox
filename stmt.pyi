@@ -12,8 +12,8 @@ class Block(Stmt):
 
 class Class(Stmt):
     name: Token
-    methods: list[Function]
-    def __init__(self, name: Token, methods: list[Function]) -> None: ...
+    methods: "list[Function]"
+    def __init__(self, name: Token, methods: "list[Function]") -> None: ...
 
 class Expression(Stmt):
     expr: Expr

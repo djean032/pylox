@@ -1,7 +1,7 @@
 from __future__ import annotations
 
 from dataclasses import make_dataclass
-from typing import Any
+from typing import Any, cast, TYPE_CHECKING
 
 from tokens import Token
 
@@ -32,7 +32,7 @@ def _build_expr_classes() -> dict[str, type[Expr]]:
             bases=(Expr,),
             slots=True,
         )
-        classes[name] = cls
+        classes[name] = cast(type[Expr], cls)
     return classes
 
 

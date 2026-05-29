@@ -16,7 +16,7 @@ AST_SPEC: dict[str, list[tuple[str, str]]] = {
 
 STMT_SPEC: dict[str, list[tuple[str, str]]] = {
     "Block": [("statements", "list[Stmt]")],
-    "Class": [("name", "Token"), ("methods", "list[Function]")],
+    "Class": [("name", "Token"), ("methods", '"list[Function]"')],
     "Expression": [("expr", "Expr")],
     "Function": [("name", "Token"), ("params", "list[Token]"), ("body", "list[Stmt]")],
     "If": [
@@ -36,7 +36,7 @@ def gen_expr_py(spec: dict[str, list[tuple[str, str]]]) -> str:
     lines.append("from __future__ import annotations")
     lines.append("")
     lines.append("from dataclasses import make_dataclass")
-    lines.append("from typing import Any")
+    lines.append("from typing import Any, cast, TYPE_CHECKING")
     lines.append("")
     lines.append("from tokens import Token")
     lines.append("")
@@ -61,7 +61,7 @@ def gen_expr_py(spec: dict[str, list[tuple[str, str]]]) -> str:
     lines.append("            bases=(Expr,),")
     lines.append("            slots=True,")
     lines.append("        )")
-    lines.append("        classes[name] = cls")
+    lines.append("        classes[name] = cast(type[Expr], cls)")
     lines.append("    return classes")
     lines.append("")
     lines.append("")
@@ -80,7 +80,7 @@ def gen_stmt_py(spec: dict[str, list[tuple[str, str]]]) -> str:
     lines.append("from __future__ import annotations")
     lines.append("")
     lines.append("from dataclasses import make_dataclass")
-    lines.append("from typing import Any")
+    lines.append("from typing import Any, cast")
     lines.append("")
     lines.append("from tokens import Token")
     lines.append("from expr import Expr")
@@ -106,7 +106,7 @@ def gen_stmt_py(spec: dict[str, list[tuple[str, str]]]) -> str:
     lines.append("            bases=(Stmt,),")
     lines.append("            slots=True,")
     lines.append("        )")
-    lines.append("        classes[name] = cls")
+    lines.append("        classes[name] = cast(type[Stmt], cls)")
     lines.append("    return classes")
     lines.append("")
     lines.append("")
