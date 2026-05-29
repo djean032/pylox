@@ -6,6 +6,15 @@ from expr import Expr
 
 class Stmt: ...
 
+class Block(Stmt):
+    statements: list[Stmt]
+    def __init__(self, statements: list[Stmt]) -> None: ...
+
+class Class(Stmt):
+    name: Token
+    methods: list[Function]
+    def __init__(self, name: Token, methods: list[Function]) -> None: ...
+
 class Expression(Stmt):
     expr: Expr
     def __init__(self, expr: Expr) -> None: ...
@@ -40,7 +49,3 @@ class While(Stmt):
     condition: Expr
     body: Stmt
     def __init__(self, condition: Expr, body: Stmt) -> None: ...
-
-class Block(Stmt):
-    statements: list[Stmt]
-    def __init__(self, statements: list[Stmt]) -> None: ...

@@ -2,6 +2,7 @@ from pathlib import Path
 from loxerror import LoxScanError, LoxErrors, LoxRuntimeError
 from scanner import Scanner
 from stmt import Stmt
+from resolver import Resolver
 from parser import Parser
 from tokens import TokenType
 from interpreter import Interpreter
@@ -49,8 +50,16 @@ class Lox:
         if parser.had_error:
             self.had_error = True
             return
+
+        interpreter: Interpreter = Interpreter()
+        resolver: Resolver = Resolver(interpreter)
+        resolver.resolve_all(statements)
+        if resolver.had_error:
+            self.had_error = True
+            return
+
         try:
-            Interpreter().interpret(statements)
+            interpreter.interpret(statements)
         except LoxRuntimeError as err:
             where = (
                 " at end"

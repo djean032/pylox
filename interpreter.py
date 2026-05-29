@@ -1,11 +1,24 @@
 from functools import singledispatch
-from expr import Expr, Assign, Binary, Unary, Grouping, Literal, Variable, Logical, Call
-from stmt import Return, Stmt, Expression, Print, Var, Block, If, While, Function
+from expr import (
+    Expr,
+    Assign,
+    Binary,
+    Unary,
+    Grouping,
+    Literal,
+    Variable,
+    Logical,
+    Call,
+    Get,
+)
+from stmt import Return, Stmt, Expression, Print, Var, Block, If, While, Function, Class
 from environment import Environment
 from resolver import Resolver
 from loxerror import LoxRuntimeError
 from loxcallable import LoxCallable
 from loxfunction import LoxFunction
+from loxinstance import LoxInstance
+from loxclass import LoxClass
 from return_signal import ReturnSignal
 from values import LoxValue
 from time import time
@@ -61,6 +74,11 @@ class Interpreter:
     def visit_expression(self, stmt: Expression) -> None:
         self.evaluate(stmt.expr)
 
+    def visit_class(self, stmt: Class) -> None:
+        self.environment.define(stmt.name.lexeme, None)
+        klass: LoxClass = LoxClass(stmt.name.lexeme)
+        self.environment.assign(stmt.name, klass)
+
     def visit_function(self, stmt: Function) -> None:
         function: LoxFunction = LoxFunction(stmt, self.environment)
         self.environment.define(stmt.name.lexeme, function)
@@ -111,8 +129,18 @@ class Interpreter:
 
     def visit_assign(self, expr: Assign) -> LoxValue:
         value: LoxValue = self.evaluate(expr.value)
-        self.environment.assign(expr.name, value)
+        distance: int | None = self.locals.get(expr)
+        if distance is not None:
+            self.environment.assign_at(distance, expr.name, value)
+        else:
+            self.globals.assign(expr.name, value)
         return value
+
+    def visit_get(self, expr: Get) -> LoxValue:
+        object: LoxValue = self.evaluate(expr.object)
+        if isinstance(object, LoxInstance):
+            return object.get(expr.name)
+        raise LoxRuntimeError(expr.name, "Only instances have properties.")
 
     def visit_logical(self, expr: Logical) -> LoxValue:
         left: LoxValue = self.evaluate(expr.left)
@@ -248,6 +276,7 @@ class Interpreter:
 
 @singledispatch
 def eval(expr: Expr, interp: "Interpreter") -> LoxValue:
+    _ = interp
     raise TypeError(f"No visit handler for {type(expr).__name__}")
 
 
@@ -291,8 +320,14 @@ def _(expr: Assign, interp: "Interpreter") -> LoxValue:
     return interp.visit_assign(expr)
 
 
+@eval.register
+def _(expr: Get, interp: "Interpreter") -> LoxValue:
+    return interp.visit_get(expr)
+
+
 @singledispatch
 def exec(stmt: Stmt, interp: "Interpreter") -> None:
+    _ = interp
     raise TypeError(f"No execute handler for {type(stmt).__name__}")
 
 
@@ -334,3 +369,8 @@ def _(stmt: Function, interp: "Interpreter") -> None:
 @exec.register
 def _(stmt: Return, interp: "Interpreter") -> None:
     interp.visit_return(stmt)
+
+
+@exec.register
+def _(stmt: Class, interp: "Interpreter") -> None:
+    interp.visit_class(stmt)

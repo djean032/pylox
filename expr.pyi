@@ -22,6 +22,11 @@ class Call(Expr):
     arguments: list[Expr]
     def __init__(self, callee: Expr, paren: Token, arguments: list[Expr]) -> None: ...
 
+class Get(Expr):
+    object: Expr
+    name: Token
+    def __init__(self, object: Expr, name: Token) -> None: ...
+
 class Grouping(Expr):
     expression: Expr
     def __init__(self, expression: Expr) -> None: ...

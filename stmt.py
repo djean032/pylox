@@ -12,6 +12,8 @@ class Stmt:
 
 
 _SPEC: dict[str, list[tuple[str, Any]]] = {
+    "Block": [("statements", list[Stmt])],
+    "Class": [("name", Token), ("methods", list[Function])],
     "Expression": [("expr", Expr)],
     "Function": [("name", Token), ("params", list[Token]), ("body", list[Stmt])],
     "If": [("condition", Expr), ("then_branch", Stmt), ("else_branch", Stmt | None)],
@@ -19,7 +21,6 @@ _SPEC: dict[str, list[tuple[str, Any]]] = {
     "Return": [("keyword", Token), ("value", Expr | None)],
     "Var": [("name", Token), ("initializer", Expr | None)],
     "While": [("condition", Expr), ("body", Stmt)],
-    "Block": [("statements", list[Stmt])],
 }
 
 
@@ -37,6 +38,8 @@ def _build_stmt_classes() -> dict[str, type[Stmt]]:
 
 
 _classes = _build_stmt_classes()
+Block = _classes["Block"]
+Class = _classes["Class"]
 Expression = _classes["Expression"]
 Function = _classes["Function"]
 If = _classes["If"]
@@ -44,6 +47,5 @@ Print = _classes["Print"]
 Return = _classes["Return"]
 Var = _classes["Var"]
 While = _classes["While"]
-Block = _classes["Block"]
 
-__all__ = ["Stmt", "Expression", "Function", "If", "Print", "Return", "Var", "While", "Block"]
+__all__ = ["Stmt", "Block", "Class", "Expression", "Function", "If", "Print", "Return", "Var", "While"]

@@ -1,15 +1,35 @@
 from interpreter import Interpreter
 from stmt import Block, Stmt, Var, Expression, Print, If, While, Function, Return
 from tokens import Token
-from expr import Expr, Binary, Unary, Variable, Call, Grouping, Literal, Logical, Assign
+from expr import (
+    Expr,
+    Binary,
+    Unary,
+    Variable,
+    Call,
+    Grouping,
+    Literal,
+    Logical,
+    Assign,
+    Get,
+)
+from loxerror import LoxErrors
 
 from functools import singledispatch
+from enum import Enum, auto
+
+
+class FunctionType(Enum):
+    NONE = auto()
+    FUNCTION = auto()
 
 
 class Resolver:
     def __init__(self, interpreter: Interpreter) -> None:
         self.interpreter = interpreter
         self.scopes: list[dict[str, bool]] = []
+        self.current_function = FunctionType.NONE
+        self.had_error = False
 
     def resolve_all(self, statements: list[Stmt]) -> None:
         for statement in statements:
@@ -31,6 +51,13 @@ class Resolver:
         if not self.scopes:
             return
         scope = self.scopes[-1]
+        if name.lexeme in scope:
+            LoxErrors.report(
+                name.line,
+                f" at '{name.lexeme}'",
+                "Already a variable with this name in this scope.",
+            )
+            self.had_error = True
         scope[name.lexeme] = False
 
     def define(self, name: Token) -> None:
@@ -43,9 +70,28 @@ class Resolver:
             if name.lexeme in scope:
                 self.interpreter.resolve(expr, depth)
 
+    def visit_function(self, stmt: Function) -> None:
+        self.declare(stmt.name)
+        self.define(stmt.name)
+        self.resolve_function(stmt, FunctionType.FUNCTION)
+
+    def resolve_function(self, function: Function, function_type: FunctionType) -> None:
+        enclosing_function = self.current_function
+        self.current_function = function_type
+        self.begin_scope()
+        try:
+            for param in function.params:
+                self.declare(param)
+                self.define(param)
+            self.resolve_all(function.body)
+        finally:
+            self.end_scope()
+            self.current_function = enclosing_function
+
 
 @singledispatch
 def _resolve_stmt(stmt: Stmt, resolver: Resolver) -> None:
+    _ = resolver
     raise TypeError(f"No stmt resolver for {type(stmt).__name__}")
 
 
@@ -92,26 +138,21 @@ def _(stmt: While, resolver: Resolver) -> None:
 
 @_resolve_stmt.register
 def _(stmt: Function, resolver: Resolver) -> None:
-    resolver.declare(stmt.name)
-    resolver.define(stmt.name)
-    resolver.begin_scope()
-    try:
-        for param in stmt.params:
-            resolver.declare(param)
-            resolver.define(param)
-        resolver.resolve_all(stmt.body)
-    finally:
-        resolver.end_scope()
+    resolver.visit_function(stmt)
 
 
 @_resolve_stmt.register
 def _(stmt: Return, resolver: Resolver) -> None:
+    if resolver.current_function == FunctionType.NONE:
+        LoxErrors.report(stmt.keyword.line, "", "Can't return from top-level code.")
+        resolver.had_error = True
     if stmt.value is not None:
         resolver.resolve_expr(stmt.value)
 
 
 @singledispatch
 def _resolve_expr(expr: Expr, resolver: Resolver) -> None:
+    _ = resolver
     raise TypeError(f"No expr resolver for {type(expr).__name__}")
 
 
@@ -134,6 +175,8 @@ def _(expr: Logical, resolver: Resolver) -> None:
 
 @_resolve_expr.register
 def _(expr: Literal, resolver: Resolver) -> None:
+    _ = expr
+    _ = resolver
     return
 
 
@@ -143,6 +186,11 @@ def _(expr: Call, resolver: Resolver) -> None:
 
     for arg in expr.arguments:
         resolver.resolve_expr(arg)
+
+
+@_resolve_expr.register
+def _(expr: Get, resolver: Resolver) -> None:
+    resolver.resolve_expr(expr.object)
 
 
 @_resolve_expr.register

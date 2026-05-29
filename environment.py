@@ -28,6 +28,9 @@ class Environment:
             return None
         raise LoxRuntimeError(name, f'Undefined variable "{name.lexeme}".')
 
+    def assign_at(self, distance: int, name: Token, value: LoxValue) -> None:
+        self.ancestor(distance).values[name.lexeme] = value
+
     def get_at(self, distance: int, name: str) -> LoxValue:
         return self.ancestor(distance).values[name]
 
