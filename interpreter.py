@@ -10,6 +10,8 @@ from expr import (
     Logical,
     Call,
     Get,
+    Set,
+    This,
 )
 from stmt import Return, Stmt, Expression, Print, Var, Block, If, While, Function, Class
 from environment import Environment
@@ -75,8 +77,24 @@ class Interpreter:
         self.evaluate(stmt.expr)
 
     def visit_class(self, stmt: Class) -> None:
+        superclass: LoxClass | None = None
+        if stmt.superclass is not None:
+            value: LoxValue = self.evaluate(stmt.superclass)
+            if not isinstance(value, LoxClass):
+                raise LoxRuntimeError(
+                    stmt.superclass.name, "Superclass must be a class"
+                )
+            superclass = value
+
         self.environment.define(stmt.name.lexeme, None)
-        klass: LoxClass = LoxClass(stmt.name.lexeme)
+        methods: dict[str, LoxFunction] = {}
+        for method in stmt.methods:
+            function: LoxFunction = LoxFunction(
+                method, self.environment, method.name.lexeme == "init"
+            )
+            methods[method.name.lexeme] = function
+
+        klass: LoxClass = LoxClass(stmt.name.lexeme, superclass, methods)
         self.environment.assign(stmt.name, klass)
 
     def visit_function(self, stmt: Function) -> None:
@@ -141,6 +159,17 @@ class Interpreter:
         if isinstance(object, LoxInstance):
             return object.get(expr.name)
         raise LoxRuntimeError(expr.name, "Only instances have properties.")
+
+    def visit_set(self, expr: Set) -> LoxValue:
+        object: LoxValue = self.evaluate(expr.object)
+        if not isinstance(object, LoxInstance):
+            raise LoxRuntimeError(expr.name, "Only instances have fields.")
+        value: LoxValue = self.evaluate(expr.value)
+        object.set(expr.name, value)
+        return value
+
+    def visit_this(self, expr: This) -> LoxValue:
+        return self.lookup_variable(expr.keyword, expr)
 
     def visit_logical(self, expr: Logical) -> LoxValue:
         left: LoxValue = self.evaluate(expr.left)
@@ -323,6 +352,16 @@ def _(expr: Assign, interp: "Interpreter") -> LoxValue:
 @eval.register
 def _(expr: Get, interp: "Interpreter") -> LoxValue:
     return interp.visit_get(expr)
+
+
+@eval.register
+def _(expr: This, interp: "Interpreter") -> LoxValue:
+    return interp.visit_this(expr)
+
+
+@eval.register
+def _(expr: Set, interp: "Interpreter") -> LoxValue:
+    return interp.visit_set(expr)
 
 
 @singledispatch

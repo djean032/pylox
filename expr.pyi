@@ -41,6 +41,21 @@ class Logical(Expr):
     right: Expr
     def __init__(self, left: Expr, operator: Token, right: Expr) -> None: ...
 
+class Set(Expr):
+    object: Expr
+    name: Token
+    value: Expr
+    def __init__(self, object: Expr, name: Token, value: Expr) -> None: ...
+
+class Super(Expr):
+    keyword: Token
+    method: Token
+    def __init__(self, keyword: Token, method: Token) -> None: ...
+
+class This(Expr):
+    keyword: Token
+    def __init__(self, keyword: Token) -> None: ...
+
 class Unary(Expr):
     operator: Token
     right: Expr

@@ -10,13 +10,20 @@ AST_SPEC: dict[str, list[tuple[str, str]]] = {
     "Grouping": [("expression", "Expr")],
     "Literal": [("value", "object")],
     "Logical": [("left", "Expr"), ("operator", "Token"), ("right", "Expr")],
+    "Set": [("object", "Expr"), ("name", "Token"), ("value", "Expr")],
+    "Super": [("keyword", "Token"), ("method", "Token")],
+    "This": [("keyword", "Token")],
     "Unary": [("operator", "Token"), ("right", "Expr")],
     "Variable": [("name", "Token")],
 }
 
 STMT_SPEC: dict[str, list[tuple[str, str]]] = {
     "Block": [("statements", "list[Stmt]")],
-    "Class": [("name", "Token"), ("methods", '"list[Function]"')],
+    "Class": [
+        ("name", "Token"),
+        ("superclass", "Variable | None"),
+        ("methods", '"list[Function]"'),
+    ],
     "Expression": [("expr", "Expr")],
     "Function": [("name", "Token"), ("params", "list[Token]"), ("body", "list[Stmt]")],
     "If": [
@@ -60,6 +67,7 @@ def gen_expr_py(spec: dict[str, list[tuple[str, str]]]) -> str:
     lines.append("            fields=fields,")
     lines.append("            bases=(Expr,),")
     lines.append("            slots=True,")
+    lines.append("            eq=False,")
     lines.append("        )")
     lines.append("        classes[name] = cast(type[Expr], cls)")
     lines.append("    return classes")
@@ -83,7 +91,7 @@ def gen_stmt_py(spec: dict[str, list[tuple[str, str]]]) -> str:
     lines.append("from typing import Any, cast")
     lines.append("")
     lines.append("from tokens import Token")
-    lines.append("from expr import Expr")
+    lines.append("from expr import Expr, Variable")
     lines.append("")
     lines.append("")
     lines.append("class Stmt:")
@@ -150,7 +158,7 @@ def gen_stmt_pyi(spec: dict[str, list[tuple[str, str]]]) -> str:
     lines.append("from __future__ import annotations")
     lines.append("")
     lines.append("from tokens import Token")
-    lines.append("from expr import Expr")
+    lines.append("from expr import Expr, Variable")
     lines.append("")
     lines.append("")
     lines.append("class Stmt: ...")

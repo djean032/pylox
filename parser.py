@@ -10,8 +10,22 @@ from expr import (
     Logical,
     Call,
     Get,
+    Set,
+    This,
+    Super,
 )
-from stmt import Stmt, Print, Expression, Var, Block, If, While, Function, Return, Class
+from stmt import (
+    Stmt,
+    Print,
+    Expression,
+    Var,
+    Block,
+    If,
+    While,
+    Function,
+    Return,
+    Class,
+)
 from typing import List
 from loxerror import LoxErrors, LoxParseError
 
@@ -97,6 +111,15 @@ class Parser:
             return Literal(None)
         if self.match(TokenType.NUMBER, TokenType.STRING):
             return Literal(self.previous().literal)
+        if self.match(TokenType.SUPER):
+            keyword: Token = self.previous()
+            self.consume(TokenType.DOT, 'Expect "." after "super".')
+            method: Token = self.consume(
+                TokenType.IDENTIFIER, "Expect superclass method name."
+            )
+            return Super(keyword, method)
+        if self.match(TokenType.THIS):
+            return This(self.previous())
         if self.match(TokenType.LEFT_PAREN):
             expr = self.expression()
             self.consume(TokenType.RIGHT_PAREN, "Expect ')' after expression.")
@@ -213,8 +236,9 @@ class Parser:
             equals: Token = self.previous()
             value: Expr = self.assignment()
             if isinstance(expr, Variable):
-                name: Token = expr.name
-                return Assign(name, value)
+                return Assign(expr.name, value)
+            elif isinstance(expr, Get):
+                return Set(expr.object, expr.name, value)
             raise self.error(equals, "Invalid assignment target.")
         return expr
 
@@ -251,12 +275,17 @@ class Parser:
 
     def class_declaration(self) -> Stmt:
         name: Token = self.consume(TokenType.IDENTIFIER, "Expect class name.")
+
+        superclass: Variable | None = None
+        if self.match(TokenType.LESS):
+            self.consume(TokenType.IDENTIFIER, "Expect superclass name.")
+            superclass = Variable(self.previous())
         self.consume(TokenType.LEFT_BRACE, 'Expect "{" before class body.')
         methods: list[Function] = []
         while not self.check(TokenType.RIGHT_BRACE) and not self.is_at_end():
             methods.append(self.function("method"))
         self.consume(TokenType.RIGHT_BRACE, 'Expect "}" after class body.')
-        return Class(name, methods)
+        return Class(name, superclass, methods)
 
     def function(self, kind: str) -> Function:
         name: Token = self.consume(TokenType.IDENTIFIER, f"Expect {kind} name.")

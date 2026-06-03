@@ -4,7 +4,7 @@ from dataclasses import make_dataclass
 from typing import Any, cast
 
 from tokens import Token
-from expr import Expr
+from expr import Expr, Variable
 
 
 class Stmt:
@@ -13,7 +13,7 @@ class Stmt:
 
 _SPEC: dict[str, list[tuple[str, Any]]] = {
     "Block": [("statements", list[Stmt])],
-    "Class": [("name", Token), ("methods", "list[Function]")],
+    "Class": [("name", Token), ("superclass", Variable | None), ("methods", "list[Function]")],
     "Expression": [("expr", Expr)],
     "Function": [("name", Token), ("params", list[Token]), ("body", list[Stmt])],
     "If": [("condition", Expr), ("then_branch", Stmt), ("else_branch", Stmt | None)],

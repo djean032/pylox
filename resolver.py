@@ -1,5 +1,5 @@
-from interpreter import Interpreter
-from stmt import Block, Stmt, Var, Expression, Print, If, While, Function, Return
+from typing import TYPE_CHECKING
+from stmt import Block, Stmt, Var, Expression, Print, If, While, Function, Return, Class
 from tokens import Token
 from expr import (
     Expr,
@@ -12,23 +12,37 @@ from expr import (
     Logical,
     Assign,
     Get,
+    Set,
+    This,
 )
 from loxerror import LoxErrors
 
 from functools import singledispatch
 from enum import Enum, auto
 
+if TYPE_CHECKING:
+    from interpreter import Interpreter
+
 
 class FunctionType(Enum):
     NONE = auto()
     FUNCTION = auto()
+    INITIALIZER = auto()
+    METHOD = auto()
+
+
+class ClassType(Enum):
+    NONE = auto()
+    CLASS = auto()
+    SUBCLASS = auto()
 
 
 class Resolver:
-    def __init__(self, interpreter: Interpreter) -> None:
+    def __init__(self, interpreter: "Interpreter") -> None:
         self.interpreter = interpreter
         self.scopes: list[dict[str, bool]] = []
         self.current_function = FunctionType.NONE
+        self.current_class = ClassType.NONE
         self.had_error = False
 
     def resolve_all(self, statements: list[Stmt]) -> None:
@@ -36,10 +50,10 @@ class Resolver:
             self.resolve_stmt(statement)
 
     def resolve_stmt(self, statement: Stmt) -> None:
-        _resolve_stmt(self, statement)
+        _resolve_stmt(statement, self)
 
     def resolve_expr(self, expr: Expr) -> None:
-        _resolve_expr(self, expr)
+        _resolve_expr(expr, self)
 
     def begin_scope(self) -> None:
         self.scopes.append({})
@@ -147,7 +161,47 @@ def _(stmt: Return, resolver: Resolver) -> None:
         LoxErrors.report(stmt.keyword.line, "", "Can't return from top-level code.")
         resolver.had_error = True
     if stmt.value is not None:
+        if resolver.current_function == FunctionType.INITIALIZER:
+            LoxErrors.report(
+                stmt.keyword.line,
+                f" at '{stmt.keyword.lexeme}'",
+                "Cannot return a value from an initializer.",
+            )
+            resolver.had_error = True
         resolver.resolve_expr(stmt.value)
+
+
+@_resolve_stmt.register
+def _(stmt: Class, resolver: Resolver) -> None:
+    enclosing_class: ClassType = resolver.current_class
+    resolver.current_class = ClassType.CLASS
+    resolver.declare(stmt.name)
+    resolver.define(stmt.name)
+
+    if stmt.superclass is not None and stmt.name.lexeme == stmt.superclass.name.lexeme:
+        LoxErrors.report(
+            stmt.superclass.name.line,
+            f" at '{stmt.superclass.name.lexeme}'",
+            "A class cannot inherit from itself.",
+        )
+        resolver.had_error = True
+    if stmt.superclass is not None:
+        resolver.current_class = ClassType.SUBCLASS
+        resolver.resolve_expr(stmt.superclass)
+
+    resolver.begin_scope()
+    try:
+        resolver.scopes[-1]["this"] = True
+
+        for method in stmt.methods:
+            declaration: FunctionType = FunctionType.METHOD
+            if method.name.lexeme == "init":
+                declaration = FunctionType.INITIALIZER
+            resolver.resolve_function(method, declaration)
+
+    finally:
+        resolver.end_scope()
+        resolver.current_class = enclosing_class
 
 
 @singledispatch
@@ -194,6 +248,12 @@ def _(expr: Get, resolver: Resolver) -> None:
 
 
 @_resolve_expr.register
+def _(expr: Set, resolver: Resolver) -> None:
+    resolver.resolve_expr(expr.value)
+    resolver.resolve_expr(expr.object)
+
+
+@_resolve_expr.register
 def _(expr: Variable, resolver: Resolver) -> None:
     if resolver.scopes and resolver.scopes[-1].get(expr.name.lexeme) is False:
         pass
@@ -209,3 +269,16 @@ def _(expr: Grouping, resolver: Resolver) -> None:
 def _(expr: Assign, resolver: Resolver) -> None:
     resolver.resolve_expr(expr.value)
     resolver.resolve_local(expr, expr.name)
+
+
+@_resolve_expr.register
+def _(expr: This, resolver: Resolver) -> None:
+    if resolver.current_class is ClassType.NONE:
+        LoxErrors.report(
+            expr.keyword.line,
+            f" at '{expr.keyword.lexeme}'",
+            'Cannot use "this" outside of a class.',
+        )
+        resolver.had_error = True
+        return
+    resolver.resolve_local(expr, expr.keyword)

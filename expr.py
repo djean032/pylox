@@ -18,6 +18,9 @@ _SPEC: dict[str, list[tuple[str, Any]]] = {
     "Grouping": [("expression", Expr)],
     "Literal": [("value", object)],
     "Logical": [("left", Expr), ("operator", Token), ("right", Expr)],
+    "Set": [("object", Expr), ("name", Token), ("value", Expr)],
+    "Super": [("keyword", Token), ("method", Token)],
+    "This": [("keyword", Token)],
     "Unary": [("operator", Token), ("right", Expr)],
     "Variable": [("name", Token)],
 }
@@ -31,6 +34,7 @@ def _build_expr_classes() -> dict[str, type[Expr]]:
             fields=fields,
             bases=(Expr,),
             slots=True,
+            eq=False,
         )
         classes[name] = cast(type[Expr], cls)
     return classes
@@ -44,7 +48,10 @@ Get = _classes["Get"]
 Grouping = _classes["Grouping"]
 Literal = _classes["Literal"]
 Logical = _classes["Logical"]
+Set = _classes["Set"]
+Super = _classes["Super"]
+This = _classes["This"]
 Unary = _classes["Unary"]
 Variable = _classes["Variable"]
 
-__all__ = ["Expr", "Assign", "Binary", "Call", "Get", "Grouping", "Literal", "Logical", "Unary", "Variable"]
+__all__ = ["Expr", "Assign", "Binary", "Call", "Get", "Grouping", "Literal", "Logical", "Set", "Super", "This", "Unary", "Variable"]

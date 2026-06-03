@@ -6,10 +6,11 @@ from values import LoxValue
 if TYPE_CHECKING:
     from interpreter import Interpreter
 
+
 @runtime_checkable
 class LoxCallable(Protocol):
-    def arity(self) -> int:
-        ...
+    def arity(self) -> int: ...
 
-    def call(self, interpreter: "Interpreter", arguments: list[LoxValue]) -> LoxValue:
-        ...
+    def call(
+        self, interpreter: "Interpreter", arguments: list[LoxValue]
+    ) -> LoxValue: ...

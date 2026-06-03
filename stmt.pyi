@@ -1,7 +1,7 @@
 from __future__ import annotations
 
 from tokens import Token
-from expr import Expr
+from expr import Expr, Variable
 
 
 class Stmt: ...
@@ -12,8 +12,9 @@ class Block(Stmt):
 
 class Class(Stmt):
     name: Token
+    superclass: Variable | None
     methods: "list[Function]"
-    def __init__(self, name: Token, methods: "list[Function]") -> None: ...
+    def __init__(self, name: Token, superclass: Variable | None, methods: "list[Function]") -> None: ...
 
 class Expression(Stmt):
     expr: Expr
