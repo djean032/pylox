@@ -186,6 +186,8 @@ def _(stmt: Class, resolver: Resolver) -> None:
         )
         resolver.had_error = True
     if stmt.superclass is not None:
+        resolver.begin_scope()
+        resolver.scopes[-1]["super"] = True
         resolver.current_class = ClassType.SUBCLASS
         resolver.resolve_expr(stmt.superclass)
 
